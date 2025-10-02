@@ -132,6 +132,7 @@
             try {
                 // Fetch papers from Supabase
                 const { data, error } = await supabase
+                    .schema('rp1fa2025')
                     .from('papers')
                     .select('*')
                     .order('created_at', { ascending: false });
