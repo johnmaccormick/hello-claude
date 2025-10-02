@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Research Papers Database</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -13,46 +14,175 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+            min-height: 100vh;
+            padding: 2rem;
         }
 
         .container {
-            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
             background: white;
-            padding: 3rem 2rem;
+            padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
         }
 
         h1 {
             font-size: 2rem;
-            margin-bottom: 1rem;
+            margin-bottom: 2rem;
             color: #667eea;
+            text-align: center;
         }
 
-        p {
-            font-size: 1.1rem;
+        #loading {
+            text-align: center;
+            padding: 2rem;
             color: #666;
-            line-height: 1.6;
         }
 
-        .construction {
-            font-size: 3rem;
+        #error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 1rem;
+            border-radius: 5px;
             margin-bottom: 1rem;
+            display: none;
+        }
+
+        .papers-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .paper-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            background: #fafafa;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .paper-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .paper-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .paper-subtitle {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+
+        .paper-meta {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .paper-meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .paper-meta-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 0.25rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="construction">🚧</div>
-        <h1>Under Construction</h1>
-        <p>Research Papers Database interface is currently being built. Check back soon!</p>
+        <h1>Research Papers Database</h1>
+        <div id="error"></div>
+        <div id="loading">Loading papers...</div>
+        <div id="papers" class="papers-grid"></div>
     </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bknhgiczqeiprhyceies.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrbmhnaWN6cWVpcHJoeWNlaWVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzODc0NzQsImV4cCI6MjA2Mzk2MzQ3NH0.RB8QJew7EDWxkIOoWL3Mt4zeWtAapSDzkMdN2__HaDo';
+
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function loadPapers() {
+            const loadingEl = document.getElementById('loading');
+            const papersEl = document.getElementById('papers');
+            const errorEl = document.getElementById('error');
+
+            try {
+                // Fetch papers from Supabase
+                const { data, error } = await supabase
+                    .from('papers')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                loadingEl.style.display = 'none';
+
+                if (!data || data.length === 0) {
+                    papersEl.innerHTML = '<div class="empty-state">No papers found</div>';
+                    return;
+                }
+
+                // Display papers
+                papersEl.innerHTML = data.map(paper => `
+                    <div class="paper-card">
+                        <div class="paper-title">${escapeHtml(paper.title)}</div>
+                        ${paper.subtitle ? `<div class="paper-subtitle">${escapeHtml(paper.subtitle)}</div>` : ''}
+                        <div class="paper-meta">
+                            <div class="paper-meta-item">
+                                <span class="paper-meta-label">Students</span>
+                                <span>${escapeHtml(paper.students)}</span>
+                            </div>
+                            <div class="paper-meta-item">
+                                <span class="paper-meta-label">Conference</span>
+                                <span>${escapeHtml(paper.conference)}</span>
+                            </div>
+                            <div class="paper-meta-item">
+                                <span class="paper-meta-label">Created</span>
+                                <span>${new Date(paper.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = `Error loading papers: ${err.message}`;
+                console.error('Error:', err);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load papers when page loads
+        loadPapers();
+    </script>
 </body>
 </html>
